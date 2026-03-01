@@ -80,15 +80,11 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("Mirror server not running yet", "warning");
         return;
       }
-      try {
-        const qrText = await QRCode.toString(mirrorUrl, { type: "utf8", small: true });
-        const lines = [`  ${mirrorUrl}`, "", ...qrText.split("\n")];
-        ctx.ui.setWidget("mirror-qr", lines, { placement: "aboveEditor" });
-        // Auto-hide after 15 seconds
-        setTimeout(() => ctx.ui.setWidget("mirror-qr", undefined), 15000);
-      } catch (e: any) {
-        ctx.ui.notify(`QR error: ${e.message}`, "error");
-      }
+      const qrPageUrl = `${mirrorUrl}/api/qr`;
+      ctx.ui.notify(`Tau: ${mirrorUrl}  •  QR: ${qrPageUrl}`, "info");
+      // Open in default browser
+      const { exec } = require("node:child_process");
+      exec(`open "${qrPageUrl}"`);
     },
   });
 
@@ -450,6 +446,26 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
+    if (urlPath === "/api/qr") {
+      if (!mirrorUrl) {
+        res.writeHead(503, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Server not ready" }));
+        return;
+      }
+      QRCode.toDataURL(mirrorUrl, { width: 256, margin: 2 }).then((dataUrl: string) => {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(`<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width"><title>Tau — Connect</title>
+<style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#131316;color:#fff;font-family:-apple-system,sans-serif}
+img{border-radius:12px}a{color:#b87a5c;font-size:18px;margin-top:16px}p{color:rgba(255,255,255,0.5);font-size:13px;margin-top:8px}</style>
+</head><body><img src="${dataUrl}" width="256" height="256" alt="QR Code"><a href="${mirrorUrl}">${mirrorUrl}</a><p>Scan to open Tau on your phone</p></body></html>`);
+      }).catch((e: any) => {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      });
+      return;
+    }
+
     if (urlPath === "/api/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "ok", mode: "mirror" }));
@@ -748,12 +764,7 @@ export default function (pi: ExtensionAPI) {
       console.log(`[Mirror] Tau mirror server running on ${mirrorUrl}`);
       ctx.ui.setStatus("mirror", `Mirror: ${localIp}:${PORT}`);
 
-      // Flash QR code on startup
-      QRCode.toString(mirrorUrl, { type: "utf8", small: true }).then((qr: string) => {
-        const lines = [`  ${mirrorUrl}`, "", ...qr.split("\n")];
-        ctx.ui.setWidget("mirror-qr", lines, { placement: "aboveEditor" });
-        setTimeout(() => ctx.ui.setWidget("mirror-qr", undefined), 10000);
-      }).catch(() => {});
+      ctx.ui.notify(`Tau mirror: ${mirrorUrl}  •  /qr for QR code`, "info");
     };
 
     tryListen(PORT);
