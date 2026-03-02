@@ -1316,6 +1316,9 @@ code {
 
 .thinking-content.expanded { display: block; }
 
+/* Hide thinking blocks when toggled off */
+body.hide-thinking .thinking-block { display: none; }
+
 /* ═══════════════════════════════════════════════════════
    Tool Cards — glass with coloured left accent
    ═══════════════════════════════════════════════════════ */

@@ -1141,6 +1141,7 @@ const themeGrid = document.getElementById('theme-grid');
 
 const toggleAutoCompact = document.getElementById('toggle-auto-compact');
 const btnThinkingLevel = document.getElementById('btn-thinking-level');
+const toggleShowThinking = document.getElementById('toggle-show-thinking');
 
 
 function buildThemeGrid() {
@@ -1209,6 +1210,18 @@ btnThinkingLevel.addEventListener('click', async () => {
   if (data?.success && data.data?.level) {
     btnThinkingLevel.textContent = data.data.level;
   }
+});
+
+// Show thinking toggle (local pref)
+const showThinking = localStorage.getItem('tau-show-thinking') !== 'false';
+toggleShowThinking.className = `settings-toggle${showThinking ? ' on' : ''}`;
+if (!showThinking) document.body.classList.add('hide-thinking');
+
+toggleShowThinking.addEventListener('click', () => {
+  const isOn = toggleShowThinking.classList.contains('on');
+  toggleShowThinking.className = `settings-toggle${isOn ? '' : ' on'}`;
+  document.body.classList.toggle('hide-thinking', isOn);
+  localStorage.setItem('tau-show-thinking', !isOn);
 });
 
 
