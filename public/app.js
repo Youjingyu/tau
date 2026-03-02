@@ -287,7 +287,8 @@ function handleMessageEnd(message) {
     updateTokenUsage();
     showNewMessageBadge();
   }
-}
+
+
 
 function handleToolExecutionStart(event) {
   showTypingIndicator(false);

@@ -127,6 +127,29 @@ export default function (pi: ExtensionAPI) {
   // Also capture context from session events
   pi.on("session_start", async (_event, ctx) => {
     latestCtx = ctx;
+    turnCount = 0;
+    nameReminderSent = false;
+  });
+
+  // Session name reminder — nudge agent after 3 turns if still untitled
+  let turnCount = 0;
+  let nameReminderSent = false;
+  const NAME_REMINDER_TURNS = 3;
+
+  pi.on("turn_start", async (event, _ctx) => {
+    turnCount++;
+    if (nameReminderSent || turnCount < NAME_REMINDER_TURNS) return;
+
+    const sessionName = pi.getSessionName();
+    if (sessionName && sessionName !== "New Session" && sessionName !== "Untitled") return;
+
+    nameReminderSent = true;
+    return {
+      systemPrompt: event.systemPrompt +
+        "\n\n[Tau] This session is still unnamed after several turns. " +
+        "Please name it with a short, descriptive title using the set_session_name RPC command. " +
+        "Do this silently without mentioning it to the user.",
+    };
   });
 
   // ═══════════════════════════════════════
