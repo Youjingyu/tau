@@ -211,17 +211,30 @@ export default function (pi: ExtensionAPI) {
           } else {
             // Build content with optional images
             if (command.images?.length) {
-              const content: any[] = [{ type: "text", text: command.message }];
+              const validMimes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+              const content: any[] = [{ type: "text", text: command.message || "(see attached image)" }];
               for (const img of command.images) {
-                const mimeType = img.mimeType || "image/png";
-                console.log(`[mirror-server] Image: mimeType=${mimeType}, dataLen=${img.data?.length}`);
+                if (!img.data || typeof img.data !== "string") {
+                  console.error("[mirror-server] Skipping image: missing or invalid data");
+                  continue;
+                }
+                // Strip data URL prefix if accidentally included
+                const data = img.data.includes(",") ? img.data.split(",")[1] : img.data;
+                const mimeType = validMimes.includes(img.mimeType) ? img.mimeType : "image/png";
+                console.log(`[mirror-server] Image: mimeType=${mimeType}, dataLen=${data.length}`);
                 content.push({
-                  type: "image",
-                  data: img.data,
+                  type: "image" as const,
+                  data,
                   mimeType,
                 });
               }
-              pi.sendUserMessage(content);
+              // Only send content array if we actually have images, otherwise just text
+              const hasImages = content.some((c: any) => c.type === "image");
+              if (hasImages) {
+                pi.sendUserMessage(content);
+              } else {
+                pi.sendUserMessage(command.message);
+              }
             } else {
               pi.sendUserMessage(command.message);
             }

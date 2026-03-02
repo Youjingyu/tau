@@ -406,19 +406,71 @@ const imageInput = document.getElementById('image-input');
 const imagePreviews = document.getElementById('image-previews');
 let pendingImages = []; // Array of { data: base64, mimeType: string }
 
+// Max dimension — resize images larger than this to reduce token cost & avoid API limits
+const MAX_IMAGE_DIM = 2048;
+const VALID_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+function processImageFile(file) {
+  return new Promise((resolve, reject) => {
+    // Validate mime type
+    const mimeType = VALID_MIME_TYPES.includes(file.type) ? file.type : 'image/png';
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize if too large
+        let { width, height } = img;
+        if (width > MAX_IMAGE_DIM || height > MAX_IMAGE_DIM) {
+          const scale = MAX_IMAGE_DIM / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Output as PNG for screenshots/diagrams, JPEG for photos
+        const outputMime = (mimeType === 'image/jpeg') ? 'image/jpeg' : 'image/png';
+        const quality = (outputMime === 'image/jpeg') ? 0.85 : undefined;
+        const dataUrl = canvas.toDataURL(outputMime, quality);
+        const base64 = dataUrl.split(',')[1];
+
+        if (!base64) {
+          reject(new Error('Failed to encode image'));
+          return;
+        }
+
+        resolve({ data: base64, mimeType: outputMime });
+      };
+      img.onerror = () => reject(new Error('Failed to decode image'));
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addImageFiles(files) {
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    try {
+      const img = await processImageFile(file);
+      pendingImages.push(img);
+    } catch (e) {
+      console.error('[Tau] Image processing failed:', e);
+    }
+  }
+  renderImagePreviews();
+}
+
 attachBtn.addEventListener('click', () => imageInput.click());
 
 imageInput.addEventListener('change', () => {
-  for (const file of imageInput.files) {
-    if (!file.type.startsWith('image/')) continue;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      pendingImages.push({ data: base64, mimeType: file.type });
-      renderImagePreviews();
-    };
-    reader.readAsDataURL(file);
-  }
+  addImageFiles(imageInput.files);
   imageInput.value = '';
 });
 
@@ -426,31 +478,17 @@ imageInput.addEventListener('change', () => {
 messageInput.addEventListener('dragover', (e) => { e.preventDefault(); });
 messageInput.addEventListener('drop', (e) => {
   e.preventDefault();
-  for (const file of e.dataTransfer.files) {
-    if (!file.type.startsWith('image/')) continue;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      pendingImages.push({ data: base64, mimeType: file.type });
-      renderImagePreviews();
-    };
-    reader.readAsDataURL(file);
-  }
+  addImageFiles(e.dataTransfer.files);
 });
 
 // Paste images
 messageInput.addEventListener('paste', (e) => {
+  const files = [];
   for (const item of e.clipboardData.items) {
     if (!item.type.startsWith('image/')) continue;
-    const file = item.getAsFile();
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      pendingImages.push({ data: base64, mimeType: file.type });
-      renderImagePreviews();
-    };
-    reader.readAsDataURL(file);
+    files.push(item.getAsFile());
   }
+  if (files.length) addImageFiles(files);
 });
 
 function renderImagePreviews() {
