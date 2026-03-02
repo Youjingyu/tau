@@ -288,8 +288,7 @@ function handleMessageEnd(message) {
     updateTokenUsage();
     showNewMessageBadge();
   }
-
-
+}
 
 function handleToolExecutionStart(event) {
   showTypingIndicator(false);
@@ -1236,4 +1235,3 @@ sidebar.loadSessions().then(() => {
 });
 
 console.log('🚀 Tau initialized');
-}
