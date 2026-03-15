@@ -962,7 +962,7 @@ function isMobile() {
 }
 
 function updateSidebarToggleIcon() {
-  sidebarToggle.textContent = '☰';
+  // Keeping SVG icon, no text update needed
 }
 
 function toggleSidebar() {
